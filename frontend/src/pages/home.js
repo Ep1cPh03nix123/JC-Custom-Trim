@@ -1,13 +1,34 @@
-// src/pages/Home.js
 import React, { useState } from 'react';
 import EmployeeForm from '../components/EmployeeForm';
+import WeeklyTimesheetForm from '../components/WeeklyTimesheetForm';
 
 const Home = () => {
   const [employees, setEmployees] = useState([]);
+  const [activeEmployeeId, setActiveEmployeeId] = useState(null);
+  const [timesheets, setTimesheets] = useState({}); // 🔥 Store timesheet per employee
 
   const handleAddEmployee = (employee) => {
     setEmployees((prev) => [...prev, employee]);
+    setActiveEmployeeId(employee.id);
+    setTimesheets((prev) => ({
+      ...prev,
+      [employee.id]: {}, // initialize empty timesheet
+    }));
   };
+
+  const handleTimesheetChange = (employeeId, updatedTimeData) => {
+    setTimesheets((prev) => ({
+      ...prev,
+      [employeeId]: updatedTimeData
+    }));
+  };
+
+  const handleTimesheetSubmit = (data) => {
+    console.log('Timesheet Submitted:', data);
+  };
+
+  const activeEmployee = employees.find(emp => emp.id === activeEmployeeId);
+  const activeTimeData = timesheets[activeEmployeeId] || {};
 
   return (
     <div style={styles.container}>
@@ -20,13 +41,33 @@ const Home = () => {
         {employees.length === 0 ? (
           <p>No employees added yet.</p>
         ) : (
-          <ul>
-            {employees.map((emp) => (
-              <li key={emp.id}>
-                {emp.name} - ${emp.rate.toFixed(2)}/hr
-              </li>
-            ))}
-          </ul>
+          <>
+            <div style={styles.tabBar}>
+              {employees.map(emp => (
+                <button
+                  key={emp.id}
+                  onClick={() => setActiveEmployeeId(emp.id)}
+                  style={{
+                    ...styles.tab,
+                    ...(emp.id === activeEmployeeId ? styles.activeTab : {})
+                  }}
+                >
+                  {emp.name}
+                </button>
+              ))}
+            </div>
+
+            {activeEmployee && (
+              <div style={styles.timesheetBox}>
+                <WeeklyTimesheetForm
+                  employee={activeEmployee}
+                  timeData={activeTimeData}
+                  onChange={(updated) => handleTimesheetChange(activeEmployeeId, updated)}
+                  onSubmit={handleTimesheetSubmit}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -36,15 +77,39 @@ const Home = () => {
 const styles = {
   container: {
     padding: '20px',
-    maxWidth: '600px',
+    maxWidth: '900px',
     margin: '0 auto',
     fontFamily: 'Segoe UI, sans-serif',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px'
+    backgroundColor: '#f4f4f4',
+    borderRadius: '8px',
   },
   section: {
-    marginTop: '20px'
-  }
+    marginTop: '20px',
+  },
+  tabBar: {
+    display: 'flex',
+    gap: '10px',
+    marginBottom: '20px',
+    flexWrap: 'wrap',
+  },
+  tab: {
+    padding: '10px 15px',
+    backgroundColor: '#ddd',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  activeTab: {
+    backgroundColor: '#007bff',
+    color: '#fff',
+  },
+  timesheetBox: {
+    padding: '15px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+  },
 };
 
 export default Home;
