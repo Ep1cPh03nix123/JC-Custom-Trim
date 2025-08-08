@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import EmployeeForm from '../components/EmployeeForm';
 import WeeklyTimesheetForm from '../components/WeeklyTimesheetForm';
+import TimesheetSummary from '../components/TimesheetSummary';
 
 const Home = () => {
   const [employees, setEmployees] = useState([]);
   const [activeEmployeeId, setActiveEmployeeId] = useState(null);
-  const [timesheets, setTimesheets] = useState({}); // 🔥 Store timesheet per employee
+  const [timesheets, setTimesheets] = useState({}); // Store timesheet per employee
 
   const handleAddEmployee = (employee) => {
     setEmployees((prev) => [...prev, employee]);
-    setActiveEmployeeId(employee.id);
+    setActiveEmployeeId(employee.id); // focus new tab
     setTimesheets((prev) => ({
       ...prev,
       [employee.id]: {}, // initialize empty timesheet
@@ -19,15 +20,11 @@ const Home = () => {
   const handleTimesheetChange = (employeeId, updatedTimeData) => {
     setTimesheets((prev) => ({
       ...prev,
-      [employeeId]: updatedTimeData
+      [employeeId]: updatedTimeData,
     }));
   };
 
-  const handleTimesheetSubmit = (data) => {
-    console.log('Timesheet Submitted:', data);
-  };
-
-  const activeEmployee = employees.find(emp => emp.id === activeEmployeeId);
+  const activeEmployee = employees.find((emp) => emp.id === activeEmployeeId);
   const activeTimeData = timesheets[activeEmployeeId] || {};
 
   return (
@@ -43,13 +40,13 @@ const Home = () => {
         ) : (
           <>
             <div style={styles.tabBar}>
-              {employees.map(emp => (
+              {employees.map((emp) => (
                 <button
                   key={emp.id}
                   onClick={() => setActiveEmployeeId(emp.id)}
                   style={{
                     ...styles.tab,
-                    ...(emp.id === activeEmployeeId ? styles.activeTab : {})
+                    ...(emp.id === activeEmployeeId ? styles.activeTab : {}),
                   }}
                 >
                   {emp.name}
@@ -62,8 +59,18 @@ const Home = () => {
                 <WeeklyTimesheetForm
                   employee={activeEmployee}
                   timeData={activeTimeData}
-                  onChange={(updated) => handleTimesheetChange(activeEmployeeId, updated)}
-                  onSubmit={handleTimesheetSubmit}
+                  onChange={(updated) =>
+                    handleTimesheetChange(activeEmployeeId, updated)
+                  }
+                />
+
+                {/* Team-wide daily aggregation summary */}
+                <TimesheetSummary
+                  employees={employees}
+                  timesheets={timesheets}
+                  weekStartISO={
+                    activeTimeData.weekStart || new Date().toISOString().slice(0, 10)
+                  }
                 />
               </div>
             )}
