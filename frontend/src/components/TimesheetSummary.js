@@ -3,31 +3,58 @@ import React, { useMemo } from 'react';
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+/* ---------- Pure helpers (module scope) ---------- */
+
+const parseTime = (t) => (t ? new Date(`1970-01-01T${t}:00`) : null);
+
+const roundWithHalfStay = (val) => {
+  const eps = 1e-9;
+  const base = Math.floor(val);
+  const frac = val - base;
+  if (Math.abs(frac - 0.5) < eps) return base + 0.5; // keep .5 exact
+  if (frac < 0.5) return base;                       // round down
+  return base + 1;                                   // round up
+};
+
+const getHoursWithLunch = (start, end) => {
+  if (!start || !end) return 0;
+  const s = parseTime(start);
+  const e = parseTime(end);
+  if (!s || !e) return 0;
+
+  let hours = (e - s) / (1000 * 60 * 60);
+  if (hours <= 0) return 0;
+
+  // subtract 1 hour lunch if start is before 12:00
+  const noon = new Date('1970-01-01T12:00:00');
+  if (s < noon) {
+    hours = Math.max(0, hours - 1);
+  }
+
+  return roundWithHalfStay(hours);
+};
+
+const fmtHours = (h) => (Number.isInteger(h) ? `${h}` : `${h.toFixed(1)}`);
+
+/* ------------------------------------------------ */
+
 const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => {
-  const weekStartDate = useMemo(() => new Date(weekStartISO), [weekStartISO]);
-
-  const getHours = (start, end) => {
-    if (!start || !end) return 0;
-    const a = new Date(`1970-01-01T${start}:00`);
-    const b = new Date(`1970-01-01T${end}:00`);
-    const diff = (b - a) / (1000 * 60 * 60);
-    return diff > 0 ? diff : 0;
-  };
-
   const lines = useMemo(() => {
+    const weekStartDate = new Date(weekStartISO);
+
     return daysOfWeek.map((day, idx) => {
       const d = new Date(weekStartDate);
       d.setDate(weekStartDate.getDate() + idx);
       const prettyDay = `${dayAbbr[idx]} ${d.getDate()}`;
 
-      // Group by exact hours for this day (exclude 0)
+      // Group by exact (rounded) hours for this day (exclude 0)
       const groups = new Map(); // key: hours string -> { count, paySum }
       employees.forEach((emp) => {
         const ts = timesheets[emp.id] || {};
         const { start = '', end = '' } = ts[day] || {};
-        const hrs = getHours(start, end);
+        const hrs = getHoursWithLunch(start, end);
         if (hrs > 0) {
-          const key = hrs.toFixed(2); // normalize
+          const key = fmtHours(hrs); // normalized display key like '9' or '9.5'
           if (!groups.has(key)) groups.set(key, { count: 0, paySum: 0 });
           const entry = groups.get(key);
           entry.count += 1;
@@ -39,9 +66,7 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
       let dayTotalPay = 0;
       for (const [hrsKey, { count, paySum }] of groups.entries()) {
         const menLabel = count === 1 ? '1 man' : `${count} men`;
-        const hrsNum = Number(hrsKey);
-        const hrsText = Number.isInteger(hrsNum) ? `${hrsNum}` : hrsNum.toFixed(2);
-        segments.push(`${menLabel} @ ${hrsText} hrs`);
+        segments.push(`${menLabel} @ ${hrsKey} hrs`);
         dayTotalPay += paySum;
       }
 
@@ -53,7 +78,7 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
       const right = `$${dayTotalPay.toFixed(2)}`;
       return { left, right, dayTotalPay };
     });
-  }, [employees, timesheets, weekStartDate]);
+  }, [employees, timesheets, weekStartISO]); // only real deps
 
   const weeklyTotal = lines.reduce((sum, l) => sum + l.dayTotalPay, 0);
 

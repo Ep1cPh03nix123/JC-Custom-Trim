@@ -24,17 +24,40 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
     fullTimeData[day] = { start: '', end: '', ...(fullTimeData[day] || {}) };
   }
 
-  const getHours = (start, end) => {
-    if (!start || !end) return 0;
-    const startTime = new Date(`1970-01-01T${start}:00`);
-    const endTime = new Date(`1970-01-01T${end}:00`);
-    const diff = (endTime - startTime) / (1000 * 60 * 60);
-    return diff > 0 ? diff : 0; // ignore negative (no overnight)
+  // ----- Helpers: lunch deduction + rounding -----
+  const parseTime = (t) => (t ? new Date(`1970-01-01T${t}:00`) : null);
+
+  const roundWithHalfStay = (val) => {
+    const eps = 1e-9;
+    const base = Math.floor(val);
+    const frac = val - base;
+    if (Math.abs(frac - 0.5) < eps) return base + 0.5; // keep .5 exact
+    if (frac < 0.5) return base;                       // round down
+    return base + 1;                                   // round up
   };
+
+  const getHoursWithLunch = (start, end) => {
+    if (!start || !end) return 0;
+    const s = parseTime(start);
+    const e = parseTime(end);
+    if (!s || !e) return 0;
+
+    let hours = (e - s) / (1000 * 60 * 60);
+    if (hours <= 0) return 0;
+
+    // Lunch: subtract 1 hour if started before 12:00
+    const noon = new Date('1970-01-01T12:00:00');
+    if (s < noon) {
+      hours = Math.max(0, hours - 1);
+    }
+
+    return roundWithHalfStay(hours);
+  };
+  // -----------------------------------------------
 
   const totalHours = daysOfWeek.reduce((sum, day) => {
     const { start, end } = fullTimeData[day];
-    return sum + getHours(start, end);
+    return sum + getHoursWithLunch(start, end);
   }, 0);
 
   const handleChange = (day, field, value) => {
@@ -59,6 +82,8 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
     onChange(updated);
   };
 
+  const fmtHours = (h) => (Number.isInteger(h) ? `${h}` : `${h.toFixed(1)}`);
+
   return (
     <div style={styles.form}>
       <h3>Timesheet for {employee.name} (${employee.rate}/hr)</h3>
@@ -72,28 +97,32 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
         />
       </div>
 
-      {daysOfWeek.map((day) => (
-        <div key={day} style={styles.row}>
-          <strong style={{ width: 90 }}>{day}:</strong>
-          <input
-            type="time"
-            value={fullTimeData[day].start}
-            onChange={(e) => handleChange(day, 'start', e.target.value)}
-          />
-          <span>to</span>
-          <input
-            type="time"
-            value={fullTimeData[day].end}
-            onChange={(e) => handleChange(day, 'end', e.target.value)}
-          />
-          <span style={{ marginLeft: 8 }}>
-            {getHours(fullTimeData[day].start, fullTimeData[day].end).toFixed(2)} hrs
-          </span>
-        </div>
-      ))}
+      {daysOfWeek.map((day) => {
+        const { start, end } = fullTimeData[day];
+        const hrs = getHoursWithLunch(start, end);
+        return (
+          <div key={day} style={styles.row}>
+            <strong style={{ width: 90 }}>{day}:</strong>
+            <input
+              type="time"
+              value={start}
+              onChange={(e) => handleChange(day, 'start', e.target.value)}
+            />
+            <span>to</span>
+            <input
+              type="time"
+              value={end}
+              onChange={(e) => handleChange(day, 'end', e.target.value)}
+            />
+            <span style={{ marginLeft: 8 }}>
+              {fmtHours(hrs)} hrs
+            </span>
+          </div>
+        );
+      })}
 
       <div style={styles.summary}>
-        <p><strong>Total Hours:</strong> {totalHours.toFixed(2)}</p>
+        <p><strong>Total Hours:</strong> {fmtHours(totalHours)}</p>
         <p><strong>Total Pay:</strong> ${(totalHours * employee.rate).toFixed(2)}</p>
       </div>
     </div>
