@@ -58,7 +58,7 @@ const styles = {
     padding: '10px',
     border: '1px solid #ccc',
     borderRadius: '8px',
-    width: '100%',
+    width: '90%',
     maxWidth: '400px'
   },
   inputGroup: {
