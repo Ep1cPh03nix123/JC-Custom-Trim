@@ -78,7 +78,7 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
       const right = `$${dayTotalPay.toFixed(2)}`;
       return { left, right, dayTotalPay };
     });
-  }, [employees, timesheets, weekStartISO]); // only real deps
+  }, [employees, timesheets, weekStartISO]); // ✅ only real deps
 
   const weeklyTotal = lines.reduce((sum, l) => sum + l.dayTotalPay, 0);
 
