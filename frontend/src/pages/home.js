@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import EmployeeForm from '../components/EmployeeForm';
 import WeeklyTimesheetForm from '../components/WeeklyTimesheetForm';
 import TimesheetSummary from '../components/TimesheetSummary';
+import NotebookWeekView from '../components/NotebookWeekView';
 
 const Home = () => {
   const [employees, setEmployees] = useState([]);
@@ -69,8 +70,14 @@ const Home = () => {
                   employees={employees}
                   timesheets={timesheets}
                   weekStartISO={
-                    activeTimeData.weekStart || new Date().toISOString().slice(0, 10)
+                  activeTimeData.weekStart || new Date().toISOString().slice(0, 10)
                   }
+                />
+                {/* NEW: Notebook-style menu like your photo */}
+                <NotebookWeekView
+                  employees={employees}
+                  timesheets={timesheets}
+                  weekStartISO={activeTimeData.weekStart || new Date().toISOString().slice(0, 10)}
                 />
               </div>
             )}
