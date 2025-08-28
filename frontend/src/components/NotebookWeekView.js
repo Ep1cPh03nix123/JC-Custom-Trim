@@ -1,34 +1,9 @@
-// src/components/NotebookWeekView.js
 import React, { useMemo } from 'react';
+import { fmtHours, fmtTime, getHoursWithFlags } from '../utils/TimeHelpers';
 
 // ----- shared constants
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-/* ---------- Pure helpers (same rules as your app now) ---------- */
-const parseTime = (t) => (t ? new Date(`1970-01-01T${t}:00`) : null);
-
-// Show as int if whole, otherwise one decimal (e.g., 9, 9.5)
-const fmtHours = (h) => (Number.isInteger(h) ? `${h}` : `${(+h).toFixed(1)}`);
-const fmtTime  = (t) => (t ? t.replace(/^0/, '') : ''); // simple 07:30 -> 7:30
-
-// EXACT hours: (end - start). Default subtract 1h lunch.
-// If addLunchBack === true → do NOT subtract (i.e., add lunch back).
-const getHoursWithLunchFlag = (start, end, addLunchBack = false) => {
-  if (!start || !end) return 0;
-  const s = parseTime(start);
-  const e = parseTime(end);
-  if (!s || !e) return 0;
-
-  let hours = (e - s) / (1000 * 60 * 60); // exact hours
-  if (hours <= 0) return 0;
-
-  if (!addLunchBack) {
-    hours = Math.max(0, hours - 1);
-  }
-  return hours;
-};
-/* --------------------------------------------------------------- */
 
 const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => {
   const weekStartDate = useMemo(() => new Date(weekStartISO), [weekStartISO]);
@@ -46,8 +21,8 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
       // rows for this day
       const rows = employees.map(emp => {
         const ts = timesheets[emp.id] || {};
-        const { start = '', end = '', addLunchBack = false } = ts[day] || {};
-        const hours = getHoursWithLunchFlag(start, end, addLunchBack);
+        const { start = '', end = '', addLunchBack = false, round = false } = ts[day] || {};
+        const hours = getHoursWithFlags(start, end, addLunchBack, round);
 
         // accumulate weekly total per employee
         if (!empTotals.has(emp.id)) empTotals.set(emp.id, { name: emp.name, rate: emp.rate ?? 0, hours: 0 });
@@ -104,7 +79,7 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
         ))}
       </div>
 
-      {/* Right: weekly per-employee tallies like your photo */}
+      {/* Right: weekly per-employee tallies */}
       <div style={styles.rightCol}>
         <div style={styles.weekHeader}>Weekly Totals</div>
 
@@ -122,10 +97,12 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
           <div style={styles.weekPay}>${weeklyTotalPay.toFixed(2)}</div>
         </div>
 
-        {/* NEW: explicit Total Hours line under "All workers" */}
+        {/* Total Hours line under All workers */}
         <div style={styles.totalHoursLine}>
           <span style={{ fontWeight: 600 }}>Total Hours:</span>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtHours(weeklyTotalHours)}</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {fmtHours(weeklyTotalHours)}
+          </span>
         </div>
       </div>
     </div>

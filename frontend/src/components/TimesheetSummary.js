@@ -1,27 +1,7 @@
 import React, { useMemo } from 'react';
+import { fmtHours, getHoursWithFlags } from '../utils/TimeHelpers';
 
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-/* ---------- Pure helpers ---------- */
-const parseTime = (t) => (t ? new Date(`1970-01-01T${t}:00`) : null);
-const fmtHours = (h) => (Number.isInteger(h) ? `${h}` : `${(+h).toFixed(1)}`);
-
-const getHoursWithLunchFlag = (start, end, addLunchBack = false) => {
-  if (!start || !end) return 0;
-  const s = parseTime(start);
-  const e = parseTime(end);
-  if (!s || !e) return 0;
-
-  let hours = (e - s) / (1000 * 60 * 60);
-  if (hours <= 0) return 0;
-
-  if (!addLunchBack) {
-    hours = Math.max(0, hours - 1);
-  }
-  return hours;
-};
-/* ---------------------------------- */
 
 const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => {
   const lines = useMemo(() => {
@@ -30,16 +10,22 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
     return daysOfWeek.map((day, idx) => {
       const d = new Date(weekStartDate);
       d.setDate(weekStartDate.getDate() + idx);
-      const prettyDay = `${dayAbbr[idx]} ${d.getDate()}`;
 
-      // Group by exact hours for this day (exclude 0). Hours already reflect lunch flag.
+      // Format as MM/DD/YY (e.g., 08/28/25)
+      const prettyDay = d.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: '2-digit',
+      });
+
+      // Group by (possibly rounded) hours for this day (exclude 0)
       const groups = new Map(); // key: hours string -> { count, paySum }
       employees.forEach((emp) => {
         const ts = timesheets[emp.id] || {};
-        const { start = '', end = '', addLunchBack = false } = ts[day] || {};
-        const hrs = getHoursWithLunchFlag(start, end, addLunchBack);
+        const { start = '', end = '', addLunchBack = false, round = false } = ts[day] || {};
+        const hrs = getHoursWithFlags(start, end, addLunchBack, round);
         if (hrs > 0) {
-          const key = fmtHours(hrs); // e.g., '9', '9.5', '9.3'
+          const key = fmtHours(hrs); // normalized display like '9' or '9.5'
           if (!groups.has(key)) groups.set(key, { count: 0, paySum: 0 });
           const entry = groups.get(key);
           entry.count += 1;
@@ -65,7 +51,22 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
     });
   }, [employees, timesheets, weekStartISO]);
 
-  const weeklyTotal = lines.reduce((sum, l) => sum + l.dayTotalPay, 0);
+  // Weekly total & date range label (MM/DD/YY - MM/DD/YY)
+  const { weeklyTotal, weekRangeLabel } = useMemo(() => {
+    const total = lines.reduce((sum, l) => sum + l.dayTotalPay, 0);
+
+    const start = new Date(weekStartISO);
+    const end = new Date(weekStartISO);
+    end.setDate(start.getDate() + 6);
+
+    const fmt = (d) =>
+      d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+
+    return {
+      weeklyTotal: total,
+      weekRangeLabel: `${fmt(start)} - ${fmt(end)}`
+    };
+  }, [lines, weekStartISO]);
 
   return (
     <div style={styles.wrapper}>
@@ -84,8 +85,8 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
       ))}
 
       <div style={styles.footer}>
-        <div><strong>Total:</strong></div>
-        <div><strong>${weeklyTotal.toFixed(2)}</strong></div>
+        <div><strong>{`Total (${weekRangeLabel}):`}</strong></div>
+        <div><strong>{`$${weeklyTotal.toFixed(2)}`}</strong></div>
       </div>
     </div>
   );

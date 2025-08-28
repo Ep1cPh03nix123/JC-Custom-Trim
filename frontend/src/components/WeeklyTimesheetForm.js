@@ -1,45 +1,12 @@
 import React from 'react';
+import { fmtHours, getHoursWithFlags, getMondayISO } from '../utils/TimeHelpers';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-/* ---------- Pure helpers (module scope) ---------- */
-
-const parseTime = (t) => (t ? new Date(`1970-01-01T${t}:00`) : null);
-
-// Show as int if whole, otherwise one decimal (e.g., 9 or 9.5 or 9.3)
-const fmtHours = (h) => (Number.isInteger(h) ? `${h}` : `${(+h).toFixed(1)}`);
-
-// EXACT hours: (end - start). Default subtract 1h lunch.
-// If addLunchBack === true → do NOT subtract (i.e., add lunch back).
-const getHoursWithLunchFlag = (start, end, addLunchBack = false) => {
-  if (!start || !end) return 0;
-  const s = parseTime(start);
-  const e = parseTime(end);
-  if (!s || !e) return 0;
-
-  let hours = (e - s) / (1000 * 60 * 60); // exact hours difference
-  if (hours <= 0) return 0;
-
-  if (!addLunchBack) {
-    hours = Math.max(0, hours - 1);
-  }
-  return hours;
-};
-
-const getMondayISO = (d = new Date()) => {
-  const date = new Date(d);
-  const day = date.getDay(); // 0..6 (Sun..Sat)
-  const diff = (day + 6) % 7; // days since Monday
-  date.setDate(date.getDate() - diff);
-  return date.toISOString().slice(0, 10);
-};
-
-/* ------------------------------------------------ */
-
 const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
-  // Default structure (Mon–Sun + weekStart + lunch toggle per day)
+  // Default structure (Mon–Sun + weekStart + per-day toggles)
   const initialTimeData = daysOfWeek.reduce((acc, day) => {
-    acc[day] = { start: '', end: '', addLunchBack: false };
+    acc[day] = { start: '', end: '', addLunchBack: false, round: false };
     return acc;
   }, { weekStart: getMondayISO() });
 
@@ -51,33 +18,28 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
       start: '',
       end: '',
       addLunchBack: false,
+      round: false,
       ...base,
     };
   }
 
   const totalHours = daysOfWeek.reduce((sum, day) => {
-    const { start, end, addLunchBack } = fullTimeData[day];
-    return sum + getHoursWithLunchFlag(start, end, addLunchBack);
+    const { start, end, addLunchBack, round } = fullTimeData[day];
+    return sum + getHoursWithFlags(start, end, addLunchBack, round);
   }, 0);
 
   const handleChange = (day, field, value) => {
     const updated = {
       ...fullTimeData,
-      [day]: {
-        ...fullTimeData[day],
-        [field]: value,
-      },
+      [day]: { ...fullTimeData[day], [field]: value },
     };
     onChange(updated);
   };
 
-  const handleLunchToggle = (day, checked) => {
+  const handleToggle = (day, field, checked) => {
     const updated = {
       ...fullTimeData,
-      [day]: {
-        ...fullTimeData[day],
-        addLunchBack: checked,
-      },
+      [day]: { ...fullTimeData[day], [field]: checked },
     };
     onChange(updated);
   };
@@ -88,9 +50,7 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
     const diff = (day + 6) % 7;
     chosen.setDate(chosen.getDate() - diff);
     const mondayISO = chosen.toISOString().slice(0, 10);
-
-    const updated = { ...fullTimeData, weekStart: mondayISO };
-    onChange(updated);
+    onChange({ ...fullTimeData, weekStart: mondayISO });
   };
 
   return (
@@ -107,8 +67,8 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
       </div>
 
       {daysOfWeek.map((day) => {
-        const { start, end, addLunchBack } = fullTimeData[day];
-        const hrs = getHoursWithLunchFlag(start, end, addLunchBack);
+        const { start, end, addLunchBack, round } = fullTimeData[day];
+        const hrs = getHoursWithFlags(start, end, addLunchBack, round);
         return (
           <div key={day} style={styles.row}>
             <strong style={{ width: 90 }}>{day}:</strong>
@@ -128,14 +88,21 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
               <input
                 type="checkbox"
                 checked={addLunchBack}
-                onChange={(e) => handleLunchToggle(day, e.target.checked)}
+                onChange={(e) => handleToggle(day, 'addLunchBack', e.target.checked)}
               />
-              Add lunch back
+              No Lunch
             </label>
 
-            <span style={{ marginLeft: 8 }}>
-              {fmtHours(hrs)} hrs
-            </span>
+            <label style={styles.checkbox}>
+              <input
+                type="checkbox"
+                checked={round}
+                onChange={(e) => handleToggle(day, 'round', e.target.checked)}
+              />
+              Round
+            </label>
+
+            <span style={{ marginLeft: 8 }}>{fmtHours(hrs)} hrs</span>
           </div>
         );
       })}
