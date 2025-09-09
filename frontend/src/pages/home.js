@@ -224,6 +224,7 @@ const Home = () => {
 };
 
 /* -------------------- layout styles -------------------- */
+/* -------------------- layout styles -------------------- */
 const styles = {
   shell: {
     display: 'grid',
@@ -280,10 +281,11 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     minWidth: 0,
+    minHeight: 0,          // allow grid child to shrink so it can scroll
     background: '#ffffff',
     border: '1px solid #e4e7ec',
     borderRadius: 12,
-    overflow: 'hidden',
+    overflowY: 'auto',     // make main the scrolling container
   },
   stickyHeader: {
     position: 'sticky',
@@ -330,5 +332,6 @@ const btnActive = {
   background: '#e8f0ff',
   borderColor: '#c7dbff',
 };
+
 
 export default Home;
