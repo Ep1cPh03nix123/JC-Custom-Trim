@@ -1,4 +1,3 @@
-// src/components/CustomTimesheetForm.js
 import React from 'react';
 import { fmtHours, getHoursWithFlags } from '../utils/TimeHelpers';
 
@@ -72,6 +71,7 @@ const CustomTimesheetForm = ({ employee, timeData = {}, onChange }) => {
             <input
               style={{ width: 150 }}
               type="date"
+              lang="en-CA"
               value={row.date}
               onChange={(e) => editRow(row.id, 'date', e.target.value)}
             />

@@ -1,13 +1,12 @@
-// src/components/NotebookWeekView.js
 import React, { useMemo } from 'react';
-import { fmtHours, fmtTime, getHoursWithFlags } from '../utils/TimeHelpers';
+import { fmtHours, fmtTime, getHoursWithFlags, toLocalISO, fromLocalISO } from '../utils/TimeHelpers';
 
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => {
   const isAnyCustom = employees.some(e => (timesheets[e.id] || {}).mode === 'custom');
-  const weekStartDate = useMemo(() => new Date(weekStartISO), [weekStartISO]);
+  const weekStartDate = useMemo(() => fromLocalISO(weekStartISO), [weekStartISO]);
 
   const { dayBlocks, perEmployeeTotals } = useMemo(() => {
     const empTotals = new Map(); // id -> { name, rate, hours }
@@ -18,7 +17,7 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
     };
 
     if (!isAnyCustom) {
-      // --- Weekly view (original) ---
+      // Weekly
       const blocks = daysOfWeek.map((day, idx) => {
         const d = new Date(weekStartDate);
         d.setDate(weekStartDate.getDate() + idx);
@@ -34,13 +33,13 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
         }).filter(r => r.start && r.end);
 
         const total = rows.reduce((s, r) => s + r.hours, 0);
-        return { title, rows, total, dateISO: d.toISOString().slice(0,10) };
+        return { title, rows, total, dateISO: toLocalISO(d) };
       });
 
       return { dayBlocks: blocks, perEmployeeTotals: Array.from(empTotals.values()) };
     }
 
-    // --- Custom view: union all dates across employees ---
+    // Custom
     const dateSet = new Set();
     employees.forEach(emp => {
       const td = timesheets[emp.id] || {};
@@ -51,7 +50,7 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
     const dates = Array.from(dateSet).sort();
 
     const blocks = dates.map(dateISO => {
-      const d = new Date(dateISO);
+      const d = fromLocalISO(dateISO);
       const title = `${(d.getMonth()+1)}/${d.getDate()}/${(d.getFullYear()+'').slice(-2)}`;
 
       const rows = employees.flatMap(emp => {

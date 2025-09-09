@@ -3,14 +3,15 @@ import EmployeeForm from '../components/EmployeeForm';
 import WeeklyTimesheetForm from '../components/WeeklyTimesheetForm';
 import TimesheetSummary from '../components/TimesheetSummary';
 import NotebookWeekView from '../components/NotebookWeekView';
-import CustomTimesheetForm from '../components/CustomTimesheetForm'; // ensure this file exists
+import CustomTimesheetForm from '../components/CustomTimesheetForm';
+import { toLocalISO, getMondayISO } from '../utils/TimeHelpers';
 
 const Home = () => {
   const [employees, setEmployees] = useState([]);
   const [activeEmployeeId, setActiveEmployeeId] = useState(null);
   const [timesheets, setTimesheets] = useState({}); // per-employee timesheet data
 
-  const nowISO = new Date().toISOString().slice(0, 10);
+  const nowISO = toLocalISO(new Date());
 
   // Global mode: true if all employees are in custom
   const isCustomGlobal =
@@ -53,7 +54,7 @@ const Home = () => {
 
   const activeEmployee = employees.find((emp) => emp.id === activeEmployeeId);
   const activeTimeData = timesheets[activeEmployeeId] || {};
-  const weekStartISO = activeTimeData.weekStart || nowISO;
+  const weekStartISO = activeTimeData.weekStart || getMondayISO(new Date());
 
   // GLOBAL mode switch for all employees
   const switchMode = (mode) => {
@@ -93,7 +94,7 @@ const Home = () => {
           const cleaned = { ...existing };
           delete cleaned.mode;
           delete cleaned.customDays;
-          if (!cleaned.weekStart) cleaned.weekStart = nowISO;
+          if (!cleaned.weekStart) cleaned.weekStart = getMondayISO(new Date());
           next[emp.id] = cleaned;
         });
         return next;
@@ -293,16 +294,15 @@ const styles = {
     padding: '12px 16px',
   },
 
-  // New two-column layout for Timesheet | Team Summary
+  // Two-column layout for Timesheet | Team Summary
   twoCol: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 575px', // left takes most space, right fixed narrow
+    gridTemplateColumns: 'minmax(0, 1fr) 575px', // left wide, right narrow
     gap: 16,
     padding: 16,
     alignItems: 'start',
   },
 
-  // shared cards + below section
   card: {
     background: '#fff',
     border: '1px solid #e4e7ec',

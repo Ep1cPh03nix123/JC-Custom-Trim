@@ -1,6 +1,5 @@
-// src/components/TimesheetSummary.js
 import React, { useMemo } from 'react';
-import { fmtHours, getHoursWithFlags } from '../utils/TimeHelpers';
+import { fmtHours, getHoursWithFlags, toLocalISO, fromLocalISO } from '../utils/TimeHelpers';
 
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
@@ -10,8 +9,9 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
 
   const lines = useMemo(() => {
     if (!isAnyCustom) {
-      // --- Weekly mode (original behavior) ---
-      const weekStartDate = new Date(weekStartISO);
+      // Weekly: start from LOCAL parsed Monday, not UTC
+      const weekStartDate = fromLocalISO(weekStartISO);
+
       return daysOfWeek.map((day, idx) => {
         const d = new Date(weekStartDate);
         d.setDate(weekStartDate.getDate() + idx);
@@ -50,11 +50,11 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
             : `${prettyDay} (0 men @ 0 hrs)`;
 
         const right = `$${dayTotalPay.toFixed(2)}`;
-        return { left, right, dayTotalPay, date: d.toISOString().slice(0,10) };
+        return { left, right, dayTotalPay, date: toLocalISO(d) };
       });
     }
 
-    // --- Custom mode: union all dates across all employees' customDays ---
+    // Custom mode: union all LOCAL dates and format from LOCAL parsing
     const dateSet = new Set();
     employees.forEach(emp => {
       const td = timesheets[emp.id] || {};
@@ -63,9 +63,10 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
       }
     });
 
-    const dates = Array.from(dateSet).sort(); // YYYY-MM-DD sorts lexicographically as chronological
+    const dates = Array.from(dateSet).sort();
     return dates.map(dateISO => {
-      const prettyDay = new Date(dateISO).toLocaleDateString('en-US', {
+      const d = fromLocalISO(dateISO);
+      const prettyDay = d.toLocaleDateString('en-US', {
         month: '2-digit', day: '2-digit', year: '2-digit',
       });
 
@@ -119,7 +120,7 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
     const endISO = allDates[allDates.length - 1];
 
     const fmt = (iso) =>
-      new Date(iso).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+      fromLocalISO(iso).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
 
     return {
       weeklyTotal: total,

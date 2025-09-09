@@ -50,11 +50,30 @@ export const getHoursWithFlags = (start, end, addLunchBack = false, round = fals
   return hours;
 };
 
-/** Get ISO date (YYYY-MM-DD) for Monday of the week containing date d */
+/** Build local YYYY-MM-DD string (no UTC conversion) */
+export const toLocalISO = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+/** Parse 'YYYY-MM-DD' as a LOCAL date (avoid UTC parsing) */
+export const fromLocalISO = (iso) => {
+  if (!iso) return new Date();
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // Put at midday to avoid DST boundary weirdness
+  date.setHours(12, 0, 0, 0);
+  return date;
+};
+
+/** Get local-ISO for Monday of the week containing date d (avoid UTC drift) */
 export const getMondayISO = (d = new Date()) => {
   const date = new Date(d);
+  date.setHours(12, 0, 0, 0);
   const day = date.getDay(); // 0=Sun, 1=Mon
   const diff = (day + 6) % 7; // days since Monday
   date.setDate(date.getDate() - diff);
-  return date.toISOString().slice(0, 10);
+  return toLocalISO(date);
 };
