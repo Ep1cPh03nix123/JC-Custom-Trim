@@ -3,8 +3,7 @@ import { fmtHours, getHoursWithFlags, getMondayISO, fromLocalISO } from '../util
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
-  // Default structure (Mon–Sun + weekStart + per-day toggles)
+const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange, onWeekStartChange }) => {
   const initialTimeData = daysOfWeek.reduce((acc, day) => {
     acc[day] = { start: '', end: '', addLunchBack: false, round: false };
     return acc;
@@ -47,7 +46,10 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
   // IMPORTANT: parse the picker value as LOCAL date
   const handleWeekChange = (value) => {
     const mondayISO = getMondayISO(fromLocalISO(value));
+    // update this employee's state
     onChange({ ...fullTimeData, weekStart: mondayISO });
+    // and tell Home to sync everyone else
+    if (onWeekStartChange) onWeekStartChange(mondayISO);
   };
 
   return (

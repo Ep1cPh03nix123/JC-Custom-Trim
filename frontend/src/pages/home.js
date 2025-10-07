@@ -11,6 +11,8 @@ const Home = () => {
   const [activeEmployeeId, setActiveEmployeeId] = useState(null);
   const [timesheets, setTimesheets] = useState({}); // per-employee timesheet data
 
+  // NEW: Global Monday-of-week for the whole app
+  const [globalWeekStart, setGlobalWeekStart] = useState(getMondayISO(new Date()));
   const nowISO = toLocalISO(new Date());
 
   // Global mode: true if all employees are in custom
@@ -22,6 +24,7 @@ const Home = () => {
     setEmployees((prev) => [...prev, employee]);
     setActiveEmployeeId(employee.id);
 
+    // New hire inherits global mode + week start
     setTimesheets((prev) => {
       const customInit = {
         mode: 'custom',
@@ -37,7 +40,7 @@ const Home = () => {
           },
         ],
       };
-      const weeklyInit = {}; // WeeklyTimesheetForm will fill defaults
+      const weeklyInit = { weekStart: globalWeekStart };
       return {
         ...prev,
         [employee.id]: isCustomGlobal ? customInit : weeklyInit,
@@ -52,9 +55,21 @@ const Home = () => {
     }));
   };
 
+  // NEW: when the week date changes in the weekly form, sync it globally
+  const handleGlobalWeekStartChange = (mondayISO) => {
+    setGlobalWeekStart(mondayISO);
+    setTimesheets((prev) => {
+      const next = { ...prev };
+      employees.forEach((emp) => {
+        const ex = next[emp.id] || {};
+        next[emp.id] = { ...ex, weekStart: mondayISO };
+      });
+      return next;
+    });
+  };
+
   const activeEmployee = employees.find((emp) => emp.id === activeEmployeeId);
-  const activeTimeData = timesheets[activeEmployeeId] || {};
-  const weekStartISO = activeTimeData.weekStart || getMondayISO(new Date());
+  const weekStartISO = globalWeekStart; // single source of truth for weekly views
 
   // GLOBAL mode switch for all employees
   const switchMode = (mode) => {
@@ -86,7 +101,7 @@ const Home = () => {
         return next;
       });
     } else {
-      // switch back to weekly for everyone
+      // switch back to weekly for everyone (honor global week)
       setTimesheets((prev) => {
         const next = { ...prev };
         employees.forEach((emp) => {
@@ -94,7 +109,7 @@ const Home = () => {
           const cleaned = { ...existing };
           delete cleaned.mode;
           delete cleaned.customDays;
-          if (!cleaned.weekStart) cleaned.weekStart = getMondayISO(new Date());
+          cleaned.weekStart = globalWeekStart;
           next[emp.id] = cleaned;
         });
         return next;
@@ -190,6 +205,7 @@ const Home = () => {
                     employee={activeEmployee}
                     timeData={timesheets[activeEmployeeId] || {}}
                     onChange={(updated) => handleTimesheetChange(activeEmployeeId, updated)}
+                    onWeekStartChange={handleGlobalWeekStartChange}   // NEW: sync all employees
                   />
                 )}
               </div>
@@ -223,7 +239,6 @@ const Home = () => {
   );
 };
 
-/* -------------------- layout styles -------------------- */
 /* -------------------- layout styles -------------------- */
 const styles = {
   shell: {
@@ -281,11 +296,11 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     minWidth: 0,
-    minHeight: 0,          // allow grid child to shrink so it can scroll
+    minHeight: 0,
     background: '#ffffff',
     border: '1px solid #e4e7ec',
     borderRadius: 12,
-    overflowY: 'auto',     // make main the scrolling container
+    overflowY: 'auto',
   },
   stickyHeader: {
     position: 'sticky',
@@ -332,6 +347,5 @@ const btnActive = {
   background: '#e8f0ff',
   borderColor: '#c7dbff',
 };
-
 
 export default Home;
