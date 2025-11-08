@@ -1,10 +1,9 @@
 import React from 'react';
-import { fmtHours, getHoursWithFlags, getMondayISO } from '../utils/TimeHelpers';
+import { fmtHours, getHoursWithFlags, getMondayISO, fromLocalISO } from '../utils/TimeHelpers';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
-  // Default structure (Mon–Sun + weekStart + per-day toggles)
+const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange, onWeekStartChange }) => {
   const initialTimeData = daysOfWeek.reduce((acc, day) => {
     acc[day] = { start: '', end: '', addLunchBack: false, round: false };
     return acc;
@@ -44,13 +43,13 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
     onChange(updated);
   };
 
+  // IMPORTANT: parse the picker value as LOCAL date
   const handleWeekChange = (value) => {
-    const chosen = new Date(value);
-    const day = chosen.getDay();
-    const diff = (day + 6) % 7;
-    chosen.setDate(chosen.getDate() - diff);
-    const mondayISO = chosen.toISOString().slice(0, 10);
+    const mondayISO = getMondayISO(fromLocalISO(value));
+    // update this employee's state
     onChange({ ...fullTimeData, weekStart: mondayISO });
+    // and tell Home to sync everyone else
+    if (onWeekStartChange) onWeekStartChange(mondayISO);
   };
 
   return (
@@ -61,6 +60,7 @@ const WeeklyTimesheetForm = ({ employee, timeData = {}, onChange }) => {
         <label style={{ marginRight: 8 }}>Week starting (Mon):</label>
         <input
           type="date"
+          lang="en-CA"
           value={fullTimeData.weekStart}
           onChange={(e) => handleWeekChange(e.target.value)}
         />

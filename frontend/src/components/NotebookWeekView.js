@@ -1,55 +1,82 @@
 import React, { useMemo } from 'react';
-import { fmtHours, fmtTime, getHoursWithFlags } from '../utils/TimeHelpers';
+import { fmtHours, fmtTime, getHoursWithFlags, toLocalISO, fromLocalISO } from '../utils/TimeHelpers';
 
-// ----- shared constants
 const daysOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const dayAbbr = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => {
-  const weekStartDate = useMemo(() => new Date(weekStartISO), [weekStartISO]);
+  const isAnyCustom = employees.some(e => (timesheets[e.id] || {}).mode === 'custom');
+  const weekStartDate = useMemo(() => fromLocalISO(weekStartISO), [weekStartISO]);
 
-  // Build per-day rows and per-employee weekly totals
   const { dayBlocks, perEmployeeTotals } = useMemo(() => {
-    // per-employee accumulator
     const empTotals = new Map(); // id -> { name, rate, hours }
 
-    const blocks = daysOfWeek.map((day, idx) => {
-      const d = new Date(weekStartDate);
-      d.setDate(weekStartDate.getDate() + idx);
-      const title = `${dayAbbr[idx]} ${d.getMonth() + 1}/${d.getDate()}/${(d.getFullYear()+'').slice(-2)}`;
+    const addToTotals = (emp, hours) => {
+      if (!empTotals.has(emp.id)) empTotals.set(emp.id, { name: emp.name, rate: emp.rate ?? 0, hours: 0 });
+      empTotals.get(emp.id).hours += hours;
+    };
 
-      // rows for this day
-      const rows = employees.map(emp => {
-        const ts = timesheets[emp.id] || {};
-        const { start = '', end = '', addLunchBack = false, round = false } = ts[day] || {};
-        const hours = getHoursWithFlags(start, end, addLunchBack, round);
+    if (!isAnyCustom) {
+      // Weekly
+      const blocks = daysOfWeek.map((day, idx) => {
+        const d = new Date(weekStartDate);
+        d.setDate(weekStartDate.getDate() + idx);
+        const title = `${dayAbbr[idx]} ${d.getMonth() + 1}/${d.getDate()}/${(d.getFullYear()+'').slice(-2)}`;
 
-        // accumulate weekly total per employee
-        if (!empTotals.has(emp.id)) empTotals.set(emp.id, { name: emp.name, rate: emp.rate ?? 0, hours: 0 });
-        empTotals.get(emp.id).hours += hours;
+        const rows = employees.map(emp => {
+          const ts = timesheets[emp.id] || {};
+          const { start = '', end = '', addLunchBack = false, round = false } = ts[day] || {};
+          const hours = getHoursWithFlags(start, end, addLunchBack, round);
+          addToTotals(emp, hours);
 
-        return {
-          name: emp.name,
-          start,
-          end,
-          hours,
-        };
-      }).filter(r => r.start && r.end); // show only filled rows for the “notebook” feel
+          return { name: emp.name, start, end, hours };
+        }).filter(r => r.start && r.end);
+
+        const total = rows.reduce((s, r) => s + r.hours, 0);
+        return { title, rows, total, dateISO: toLocalISO(d) };
+      });
+
+      return { dayBlocks: blocks, perEmployeeTotals: Array.from(empTotals.values()) };
+    }
+
+    // Custom
+    const dateSet = new Set();
+    employees.forEach(emp => {
+      const td = timesheets[emp.id] || {};
+      if (td.mode === 'custom' && Array.isArray(td.customDays)) {
+        td.customDays.forEach(r => { if (r.date) dateSet.add(r.date); });
+      }
+    });
+    const dates = Array.from(dateSet).sort();
+
+    const blocks = dates.map(dateISO => {
+      const d = fromLocalISO(dateISO);
+      const title = `${(d.getMonth()+1)}/${d.getDate()}/${(d.getFullYear()+'').slice(-2)}`;
+
+      const rows = employees.flatMap(emp => {
+        const td = timesheets[emp.id] || {};
+        if (td.mode !== 'custom' || !Array.isArray(td.customDays)) return [];
+        return td.customDays
+          .filter(r => r.date === dateISO)
+          .map(r => {
+            const hours = getHoursWithFlags(r.start, r.end, r.addLunchBack, r.round);
+            addToTotals(emp, hours);
+            return { name: emp.name, start: r.start, end: r.end, hours };
+          });
+      }).filter(r => r.start && r.end);
 
       const total = rows.reduce((s, r) => s + r.hours, 0);
-
-      return { title, rows, total };
+      return { title, rows, total, dateISO };
     });
 
     return { dayBlocks: blocks, perEmployeeTotals: Array.from(empTotals.values()) };
-  }, [employees, timesheets, weekStartDate]);
+  }, [employees, timesheets, weekStartDate, isAnyCustom]);
 
   const weeklyTotalHours = perEmployeeTotals.reduce((s, e) => s + e.hours, 0);
   const weeklyTotalPay   = perEmployeeTotals.reduce((s, e) => s + e.hours * e.rate, 0);
 
   return (
     <div style={styles.wrap}>
-      {/* Left: notebook-style days */}
       <div style={styles.leftCol}>
         {dayBlocks.map((block, i) => (
           <div key={i} style={styles.dayCard}>
@@ -69,7 +96,6 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
               ))
             )}
 
-            {/* bracket-ish daily total */}
             <div style={styles.totalRow}>
               <div style={{ flex: 1 }} />
               <div style={styles.totalLabel}>Total</div>
@@ -79,9 +105,8 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
         ))}
       </div>
 
-      {/* Right: weekly per-employee tallies */}
       <div style={styles.rightCol}>
-        <div style={styles.weekHeader}>Weekly Totals</div>
+        <div style={styles.weekHeader}>Totals</div>
 
         {perEmployeeTotals.map((e, i) => (
           <div key={i} style={styles.weekRow}>
@@ -97,7 +122,6 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
           <div style={styles.weekPay}>${weeklyTotalPay.toFixed(2)}</div>
         </div>
 
-        {/* Total Hours line under All workers */}
         <div style={styles.totalHoursLine}>
           <span style={{ fontWeight: 600 }}>Total Hours:</span>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -109,18 +133,15 @@ const NotebookWeekView = ({ employees = [], timesheets = {}, weekStartISO }) => 
   );
 };
 
-/* -------------------- styles -------------------- */
+/* styles unchanged from your file */
 const styles = {
   wrap: {
     display: 'grid',
     gridTemplateColumns: '1fr 280px',
-    gap: 20,
-    marginTop: 16,
+    gap: 15,
+    margin: 'auto',
   },
-  leftCol: {
-    display: 'grid',
-    gap: 12,
-  },
+  leftCol: { display: 'grid', gap: 12 },
   dayCard: {
     background: '#fff',
     border: '1px solid #ddd',
@@ -140,29 +161,20 @@ const styles = {
     padding: '6px 0',
     borderBottom: '1px dotted #eee',
   },
-  rowEmpty: {
-    color: '#888',
-    fontStyle: 'italic',
-    padding: '6px 0',
-  },
+  rowEmpty: { color: '#888', fontStyle: 'italic', padding: '6px 0' },
   colName: { fontWeight: 500 },
   colTime: { color: '#333' },
   colHours: { textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
-
-  totalRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr 60px',
-    paddingTop: 6,
-  },
+  totalRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 60px', paddingTop: 6 },
   totalLabel: { textAlign: 'right', color: '#555', fontWeight: 600 },
   totalHours: { textAlign: 'right', fontWeight: 700 },
-
   rightCol: {
     background: '#fff',
     border: '1px solid #ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: 18,
     height: 'fit-content',
+    width: 'fit-content',
   },
   weekHeader: {
     fontWeight: 700,
@@ -188,11 +200,7 @@ const styles = {
     borderTop: '1px solid #eee',
     marginTop: 6,
   },
-  totalHoursLine: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
+  totalHoursLine: { display: 'flex', justifyContent: 'space-between', marginTop: 8 },
 };
 
 export default NotebookWeekView;

@@ -54,7 +54,7 @@ const EmployeeForm = ({ onAddEmployee }) => {
 
 const styles = {
   form: {
-    marginBottom: '20px',
+    marginBottom: 'auto',
     padding: '10px',
     border: '1px solid #ccc',
     borderRadius: '8px',

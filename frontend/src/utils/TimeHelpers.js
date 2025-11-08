@@ -10,11 +10,23 @@ export const fmtTime = (t) => (t ? t.replace(/^0/, '') : '');
 
 /** Rounding: keep .5 exact; <.5 down; >.5 up */
 export const applyRounding = (val) => {
-  const eps = 1e-9;
   const base = Math.floor(val);
-  const frac = val - base;
-  if (Math.abs(frac - 0.5) < eps) return base + 0.5;
-  if (frac < 0.5) return base;
+  const frac = +(val - base).toFixed(2); // avoid floating point issues
+  
+  //If time is .1, .2, round down
+  if (frac === 0) return base;
+
+  //If time is .3, .4, round to .5
+  if (frac <= 0.2) return base;
+
+  //If time is .5, keep as is
+  if (frac <= 0.4) return base + 0.5;
+
+  //If time is .6, .7, round to .5
+  if (frac <= 0.7) return base + 0.5;
+
+  //If time is .8, .9, round up
+  if (frac <= 0.9) return base + 1;
   return base + 1;
 };
 
@@ -38,11 +50,30 @@ export const getHoursWithFlags = (start, end, addLunchBack = false, round = fals
   return hours;
 };
 
-/** Get ISO date (YYYY-MM-DD) for Monday of the week containing date d */
+/** Build local YYYY-MM-DD string (no UTC conversion) */
+export const toLocalISO = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+/** Parse 'YYYY-MM-DD' as a LOCAL date (avoid UTC parsing) */
+export const fromLocalISO = (iso) => {
+  if (!iso) return new Date();
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // Put at midday to avoid DST boundary weirdness
+  date.setHours(12, 0, 0, 0);
+  return date;
+};
+
+/** Get local-ISO for Monday of the week containing date d (avoid UTC drift) */
 export const getMondayISO = (d = new Date()) => {
   const date = new Date(d);
+  date.setHours(12, 0, 0, 0);
   const day = date.getDay(); // 0=Sun, 1=Mon
   const diff = (day + 6) % 7; // days since Monday
   date.setDate(date.getDate() - diff);
-  return date.toISOString().slice(0, 10);
+  return toLocalISO(date);
 };
