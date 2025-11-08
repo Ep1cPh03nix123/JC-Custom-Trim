@@ -138,8 +138,8 @@ const styles = {
   wrap: {
     display: 'grid',
     gridTemplateColumns: '1fr 280px',
-    gap: 20,
-    marginTop: 16,
+    gap: 15,
+    margin: 'auto',
   },
   leftCol: { display: 'grid', gap: 12 },
   dayCard: {
@@ -172,8 +172,9 @@ const styles = {
     background: '#fff',
     border: '1px solid #ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: 18,
     height: 'fit-content',
+    width: 'fit-content',
   },
   weekHeader: {
     fontWeight: 700,

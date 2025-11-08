@@ -154,12 +154,13 @@ const TimesheetSummary = ({ employees = [], timesheets = {}, weekStartISO }) => 
 
 const styles = {
   wrapper: {
-    marginTop: 16,
+    marginTop: 'auto',
+    marginBottom: 'auto',
     padding: 12,
     background: '#fff',
     border: '1px solid #ddd',
     borderRadius: 8,
-    maxWidth: 600,
+    maxWidth: '700px',
   },
   header: {
     display: 'grid',

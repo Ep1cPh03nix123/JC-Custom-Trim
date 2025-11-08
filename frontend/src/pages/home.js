@@ -314,7 +314,7 @@ const styles = {
   // Two-column layout for Timesheet | Team Summary
   twoCol: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 575px', // left wide, right narrow
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', // left wide, right narrow
     gap: 16,
     padding: 16,
     alignItems: 'start',
