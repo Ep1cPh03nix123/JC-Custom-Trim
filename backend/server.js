@@ -1,47 +1,52 @@
-const express = require('express');
-const fs = require('fs');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from "express";
+import fs from "fs";
+import path from "path";
+import cors from "cors";
+
 const app = express();
-const PORT = 5000; // You can change this if needed
-
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// Load data.json
-const DATA_FILE = './data.json';
+// Folder where we'll save all timesheets
+const TIMESHEETS_DIR = path.join(process.cwd(), "Timesheets");
 
-// Route: get all entries
-app.get('/hours', (req, res) => {
+// Make sure the folder exists
+fs.mkdirSync(TIMESHEETS_DIR, { recursive: true });
+
+// POST endpoint to save a new timesheet
+app.post("/api/save", (req, res) => {
+  const data = req.body;
+
+  if (!data) {
+    return res.status(400).json({ message: "No data received" });
+  }
+
+  // Generate a unique filename with timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const fileName = `Timesheet_${timestamp}.json`;
+
+  const filePath = path.join(TIMESHEETS_DIR, fileName);
+
   try {
-    const data = fs.readFileSync(DATA_FILE, 'utf-8');
-    res.json(JSON.parse(data));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    console.log(`Saved: ${fileName}`);
+    res.json({ message: "Timesheet saved successfully!", file: fileName });
   } catch (err) {
-    console.error('Error reading file:', err);
-    res.status(500).json({ error: 'Failed to read data file' });
+    console.error("Error saving timesheet:", err);
+    res.status(500).json({ message: "Failed to save timesheet." });
   }
 });
 
-// Route: add a new entry
-app.post('/hours', (req, res) => {
+// Optional: GET endpoint to list saved files
+app.get("/api/timesheets", (req, res) => {
   try {
-    const newEntry = req.body;
-    const data = fs.readFileSync(DATA_FILE, 'utf-8');
-    const json = data ? JSON.parse(data) : [];
-
-    json.push({
-      id: Date.now(),
-      employee: newEntry.employee,
-      hours: newEntry.hours,
-      date: new Date().toLocaleDateString()
-    });
-
-    fs.writeFileSync(DATA_FILE, JSON.stringify(json, null, 2));
-    res.status(201).json({ message: 'Entry saved!' });
+    const files = fs.readdirSync(TIMESHEETS_DIR).filter(f => f.endsWith(".json"));
+    res.json(files);
   } catch (err) {
-    console.error('Error writing file:', err);
-    res.status(500).json({ error: 'Failed to save data' });
+    console.error("Error reading timesheet folder:", err);
+    res.status(500).json({ message: "Could not read timesheets." });
   }
 });
 
+const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

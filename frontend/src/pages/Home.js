@@ -156,6 +156,29 @@ const Home = () => {
 
       {/* MAIN PANEL */}
       <main style={styles.main}>
+        <button
+          onClick={async () => {
+            const payload = { employees, timesheets };
+            const res = await fetch("http://localhost:5000/api/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            const result = await res.json();
+            alert(result.message);
+          }}
+          style={{
+            padding: "8px 12px",
+            background: "#4caf50",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+          }}
+        >
+          💾 Save Data
+        </button>
         {activeEmployee ? (
           <>
             {/* Sticky header */}
