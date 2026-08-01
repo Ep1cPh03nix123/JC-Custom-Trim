@@ -5,6 +5,7 @@ import TimesheetSummary from '../components/TimesheetSummary';
 import NotebookWeekView from '../components/NotebookWeekView';
 import CustomTimesheetForm from '../components/CustomTimesheetForm';
 import { toLocalISO, getMondayISO } from '../utils/TimeHelpers';
+import { saveTimesheet } from '../api/timesheets';
 
 const Home = () => {
   const [employees, setEmployees] = useState([]);
@@ -158,15 +159,12 @@ const Home = () => {
       <main style={styles.main}>
         <button
           onClick={async () => {
-            const payload = { employees, timesheets };
-            const res = await fetch("http://localhost:5000/api/save", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-
-            const result = await res.json();
-            alert(result.message);
+            try {
+              const result = await saveTimesheet({ employees, timesheets });
+              alert(result.message);
+            } catch {
+              alert('Failed to save. Is the backend running on port 5000?');
+            }
           }}
           style={{
             padding: "8px 12px",
@@ -267,7 +265,7 @@ const styles = {
   shell: {
     display: 'grid',
     gridTemplateColumns: '320px 1fr',
-    height: '100vh',
+    height: '100%',
     background: '#f5f6f8',
     gap: 16,
     padding: 16,

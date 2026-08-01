@@ -37,14 +37,43 @@ app.post("/api/save", (req, res) => {
   }
 });
 
-// Optional: GET endpoint to list saved files
+// GET endpoint to list saved files (newest first)
 app.get("/api/timesheets", (req, res) => {
   try {
-    const files = fs.readdirSync(TIMESHEETS_DIR).filter(f => f.endsWith(".json"));
+    const files = fs
+      .readdirSync(TIMESHEETS_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .map((fileName) => {
+        const stat = fs.statSync(path.join(TIMESHEETS_DIR, fileName));
+        return { fileName, savedAt: stat.mtime.toISOString() };
+      })
+      .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
     res.json(files);
   } catch (err) {
     console.error("Error reading timesheet folder:", err);
     res.status(500).json({ message: "Could not read timesheets." });
+  }
+});
+
+// GET a single saved timesheet by filename
+app.get("/api/timesheets/:fileName", (req, res) => {
+  const fileName = path.basename(req.params.fileName);
+  if (!fileName.endsWith(".json") || fileName.includes("..")) {
+    return res.status(400).json({ message: "Invalid file name." });
+  }
+
+  const filePath = path.join(TIMESHEETS_DIR, fileName);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "Timesheet not found." });
+  }
+
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const data = JSON.parse(raw);
+    res.json({ fileName, ...data });
+  } catch (err) {
+    console.error("Error reading timesheet:", err);
+    res.status(500).json({ message: "Could not read timesheet." });
   }
 });
 
